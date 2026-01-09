@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Klasifikasi Sampah Real-Time</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>Klasifikasi Sampah Otomatis</h1>
+
+      <!-- Stream dari Raspberry Pi -->
+      <img id="videoStream" src="http://10.39.30.211:5000/video" />
+
+      <div class="result">
+        <p>Hasil Klasifikasi</p>
+        <h2 id="label">Menunggu...</h2>
+        <span id="confidence">-</span>
+      </div>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>
