@@ -1,0 +1,40 @@
+body {
+  background: #f4f6f8;
+  font-family: Arial, sans-serif;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+
+.container {
+  background: #ffffff;
+  padding: 20px;
+  width: 420px;
+  border-radius: 10px;
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
+  text-align: center;
+}
+
+#videoStream {
+  width: 100%;
+  border-radius: 8px;
+  margin-bottom: 15px;
+  border: 2px solid #ddd;
+}
+
+.result p {
+  margin: 0;
+  font-size: 14px;
+  color: #555;
+}
+
+#label {
+  font-size: 26px;
+  margin: 5px 0;
+}
+
+#confidence {
+  font-size: 14px;
+  color: #888;
+}
