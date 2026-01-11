@@ -12,12 +12,18 @@ setInterval(() => {
       )}%`;
 
       // Pewarnaan label
-      if (data.label === "Organik") {
+      if (data.label === "organik") {
         labelEl.style.color = "green";
-      } else if (data.label === "Anorganik") {
+      } else if (data.label === "plastic") {
         labelEl.style.color = "blue";
-      } else if (data.label === "Logam") {
+      } else if (data.label === "glass") {
+        labelEl.style.color = "grey";
+      } else if (data.label === "metal") {
         labelEl.style.color = "red";
+      } else if (data.label === "cardboard") {
+        labelEl.style.color = "brown";
+      } else if (data.label === "paper") {
+        labelEl.style.color = "orange";
       } else {
         labelEl.style.color = "black";
       }
