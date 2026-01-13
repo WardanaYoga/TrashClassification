@@ -5,7 +5,11 @@ import numpy as np
 import tensorflow as tf
 import threading
 import time
+import serial
 
+# ===============================
+# Flask
+# ===============================
 app = Flask(__name__)
 CORS(app)
 
@@ -13,30 +17,50 @@ CORS(app)
 # Load CNN model
 # ===============================
 model = tf.keras.models.load_model("modelv5.h5")
-labels = ['cardboard','glass', 'metal', 'organic', 'paper', 'plastic']
+labels = ['cardboard','glass','metal','organic','paper','plastic']
 
 # ===============================
-# Parameter penting
+# Parameter Sistem
 # ===============================
-CONF_THRESHOLD = 0.75      # confidence minimum
-VAR_THRESHOLD  = 15.0      # variansi minimum background
+CONF_THRESHOLD = 0.80      # minimal confidence
+VAR_THRESHOLD  = 20.0      # hindari background kosong
+SERIAL_COOLDOWN = 2.0      # detik (anti spam servo)
 
 # ===============================
-# Kamera (SATU KALI SAJA)
+# Mapping CNN ? Servo
+# ===============================
+SERIAL_MAP = {
+    "metal": "M",
+    "plastic": "A",
+    "paper": "A",
+    "cardboard": "A",
+    "glass": "A",
+    "organic": "O"
+}
+
+# ===============================
+# Serial ke Arduino
+# ===============================
+ser = serial.Serial('/dev/ttyACM0', 9600, timeout=1)
+time.sleep(2)
+
+def kirim_serial(kode):
+    ser.write((kode + '\n').encode())
+
+# ===============================
+# Kamera
 # ===============================
 cap = cv2.VideoCapture(0)
 cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
 latest_frame = None
-latest_result = {
-    "label": "Inisialisasi",
-    "confidence": 0.0
-}
+latest_result = {"label": "Inisialisasi", "confidence": 0.0}
 
 lock = threading.Lock()
-
+last_cmd = None
+last_time = 0
 # ===============================
-# Thread baca kamera
+# Thread Kamera
 # ===============================
 def camera_loop():
     global latest_frame
@@ -48,17 +72,18 @@ def camera_loop():
         time.sleep(0.01)
 
 # ===============================
-# Thread inference CNN
+# Thread CNN + Serial
 # ===============================
 def inference_loop():
-    global latest_result
+    global latest_result, last_cmd, last_time
+
     while True:
         with lock:
             if latest_frame is None:
                 continue
             frame = latest_frame.copy()
 
-        # Preprocessing
+        # Preprocess
         img = cv2.resize(frame, (224, 224))
         img = img.astype("float32") / 255.0
         img = np.expand_dims(img, axis=0)
@@ -67,28 +92,39 @@ def inference_loop():
         idx = int(np.argmax(preds))
         conf = float(preds[0][idx])
 
-        # ===============================
-        # DETEKSI BACKGROUND
-        # ===============================
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         variance = np.std(gray)
+        
+        
 
+        # ===============================
+        # Keputusan FINAL
+        # ===============================
         if conf < CONF_THRESHOLD or variance < VAR_THRESHOLD:
             label = "Tidak terdeteksi"
+            cmd = None
             conf = 0.0
+            last_cmd = None
         else:
             label = labels[idx]
+            cmd = SERIAL_MAP[label]
+
+        # ===============================
+        # Kirim ke Arduino (AMAN)
+        # ===============================
+        now = time.time()
+        if cmd and (cmd != last_cmd) and (now - last_time > SERIAL_COOLDOWN):
+            kirim_serial(cmd)
+            last_cmd = cmd
+            last_time = now
 
         with lock:
-            latest_result = {
-                "label": label,
-                "confidence": conf
-            }
+            latest_result = {"label": label, "confidence": conf}
 
         time.sleep(0.05)
 
 # ===============================
-# Video streaming
+# Video Streaming
 # ===============================
 def generate_frames():
     while True:
@@ -100,19 +136,17 @@ def generate_frames():
             conf = latest_result["confidence"]
 
         text = label if label == "Tidak terdeteksi" else f"{label} {conf*100:.1f}%"
-
         cv2.putText(frame, text, (20, 40),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    1, (0,255,0), 2)
+                    cv2.FONT_HERSHEY_SIMPLEX, 1,
+                    (0, 255, 0), 2)
 
         ret, buffer = cv2.imencode(".jpg", frame)
-        frame = buffer.tobytes()
-
         yield (b"--frame\r\n"
-               b"Content-Type: image/jpeg\r\n\r\n" + frame + b"\r\n")
+               b"Content-Type: image/jpeg\r\n\r\n" +
+               buffer.tobytes() + b"\r\n")
 
 # ===============================
-# Flask routes
+# Flask Routes
 # ===============================
 @app.route("/video")
 def video():
